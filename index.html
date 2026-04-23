@@ -29,6 +29,357 @@
 
 <script src="https://cdn.babylonjs.com/babylon.js"></script>
 <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
-<script src="./script.js"></script>
+<script>
+(function(){
+  const canvas = document.getElementById('renderCanvas');
+  const engine = new BABYLON.Engine(canvas, true, {preserveDrawingBuffer:true, stencil:true});
+  const scene  = new BABYLON.Scene(engine);
+  scene.clearColor = new BABYLON.Color4(0.08,0.07,0.10,1);
+  scene.gravity    = new BABYLON.Vector3(0,-0.5,0);
+  scene.collisionsEnabled = true;
+
+  /* ─────────────────────────────────────────
+     FIRST-PERSON CAMERA
+  ───────────────────────────────────────── */
+  const camera = new BABYLON.UniversalCamera('fp', new BABYLON.Vector3(0, 2.0, 4), scene);
+  camera.setTarget(new BABYLON.Vector3(0, 2.0, 0));
+  camera.minZ = 0.1;
+  camera.speed = 0.38;
+  camera.angularSensibility = 1800;
+  camera.inertia = 0.45;
+
+  // WASD + arrows
+  camera.keysUp    = [87, 38]; // W, ↑
+  camera.keysDown  = [83, 40]; // S, ↓
+  camera.keysLeft  = [65, 37]; // A, ←
+  camera.keysRight = [68, 39]; // D, →
+
+  // Collisions & ellipsoid (body capsule)
+  camera.checkCollisions = true;
+  camera.applyGravity    = false;
+  camera.ellipsoid        = new BABYLON.Vector3(0.4, 0.9, 0.4);
+  camera.ellipsoidOffset  = new BABYLON.Vector3(0, 0.9, 0);
+
+  // Clamp vertical look so player can't flip upside down
+  camera.upperBetaLimit =  Math.PI / 2.2;   // look up
+  camera.lowerBetaLimit = -Math.PI / 2.2;   // look down (ARC cam props; UniversalCamera uses rotation clamping below)
+
+  /* ─────────────────────────────────────────
+     POINTER LOCK  (desktop)
+  ───────────────────────────────────────── */
+  const lockOverlay = document.getElementById('lockOverlay');
+  const hud = document.getElementById('hud');
+
+  function requestLock(){
+    canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock || canvas.webkitRequestPointerLock;
+    if(canvas.requestPointerLock) canvas.requestPointerLock();
+  }
+
+  lockOverlay.addEventListener('click', () => {
+    requestLock();
+    camera.attachControl(canvas, true);
+  });
+
+  document.addEventListener('pointerlockchange', onLockChange);
+  document.addEventListener('mozpointerlockchange', onLockChange);
+  document.addEventListener('webkitpointerlockchange', onLockChange);
+
+  function onLockChange(){
+    const locked = document.pointerLockElement === canvas ||
+                   document.mozPointerLockElement === canvas ||
+                   document.webkitPointerLockElement === canvas;
+    lockOverlay.style.display = locked ? 'none' : 'flex';
+    hud.style.opacity = locked ? '1' : '0.3';
+  }
+
+  // Clamp pitch each frame (UniversalCamera doesn't have native beta limits)
+  // Also lock Y position to eye height so the camera never drifts up/down
+  const MAX_PITCH = Math.PI / 2.1;
+  const EYE_HEIGHT = 2.0;
+  scene.registerBeforeRender(() => {
+    const r = camera.rotation;
+    if(r.x >  MAX_PITCH) r.x =  MAX_PITCH;
+    if(r.x < -MAX_PITCH) r.x = -MAX_PITCH;
+    camera.position.y = EYE_HEIGHT;
+  });
+
+  /* ─────────────────────────────────────────
+     LIGHTS
+  ───────────────────────────────────────── */
+  const ambient = new BABYLON.HemisphericLight('amb', new BABYLON.Vector3(0,1,0), scene);
+  ambient.intensity   = 0.25;
+  ambient.diffuse     = new BABYLON.Color3(0.9,0.85,0.75);
+  ambient.groundColor = new BABYLON.Color3(0.1,0.08,0.15);
+
+  function spotAt(x,y,z,tx,ty,tz,r,g,b,intensity){
+    const l = new BABYLON.SpotLight('s'+x+z, new BABYLON.Vector3(x,y,z),
+      new BABYLON.Vector3(tx-x,ty-y,tz-z).normalize(), Math.PI/4, 2, scene);
+    l.diffuse = new BABYLON.Color3(r,g,b);
+    l.intensity = intensity;
+    return l;
+  }
+  spotAt(0,8,0,   0,0,0, 1.0,0.9,0.75,1.6);
+  spotAt(-6,7,0,  0,1.5,0, 0.7,0.8,1.0,0.8);
+  spotAt(6,7,0,   0,1.5,0, 1.0,0.85,0.6,0.8);
+  spotAt(0,7,-6,  0,1.5,0, 0.9,0.9,1.0,0.6);
+  spotAt(0,7,6,   0,1.5,0, 0.9,0.9,1.0,0.6);
+
+  /* ─────────────────────────────────────────
+     MATERIALS
+  ───────────────────────────────────────── */
+  const wallMat = new BABYLON.StandardMaterial('wallMat',scene);
+  wallMat.diffuseColor  = new BABYLON.Color3(0.82,0.80,0.75);
+  wallMat.specularColor = new BABYLON.Color3(0.05,0.05,0.05);
+  wallMat.backFaceCulling = false;
+
+  const floorMat = new BABYLON.StandardMaterial('floorMat',scene);
+  floorMat.diffuseColor  = new BABYLON.Color3(0.62,0.58,0.52);
+  floorMat.specularColor = new BABYLON.Color3(0.15,0.15,0.12);
+
+  const ceilMat = new BABYLON.StandardMaterial('ceilMat',scene);
+  ceilMat.diffuseColor  = new BABYLON.Color3(0.88,0.87,0.85);
+  ceilMat.specularColor = new BABYLON.Color3(0,0,0);
+
+  const trimMat = new BABYLON.StandardMaterial('trimMat',scene);
+  trimMat.diffuseColor = new BABYLON.Color3(0.55,0.50,0.42);
+
+  const pedMat = new BABYLON.StandardMaterial('pedMat',scene);
+  pedMat.diffuseColor  = new BABYLON.Color3(0.92,0.91,0.88);
+  pedMat.specularColor = new BABYLON.Color3(0.3,0.3,0.28);
+
+  /* ─────────────────────────────────────────
+     ROOM GEOMETRY  (all with checkCollisions)
+  ───────────────────────────────────────── */
+  const W=18, H=7, D=18, T=0.3;
+
+  function solidBox(name, opts, pos, mat){
+    const m = BABYLON.MeshBuilder.CreateBox(name, opts, scene);
+    m.position.set(pos[0],pos[1],pos[2]);
+    m.material = mat;
+    m.checkCollisions = true;
+    return m;
+  }
+
+  solidBox('floor', {width:W,height:T,depth:D},   [0, 0, 0],           floorMat);
+  solidBox('ceil',  {width:W,height:T,depth:D},   [0, H, 0],           ceilMat);
+  solidBox('wN',    {width:W,height:H,depth:T},   [0, H/2, -D/2],      wallMat);
+  solidBox('wS',    {width:W,height:H,depth:T},   [0, H/2,  D/2],      wallMat);
+  solidBox('wE',    {width:T,height:H,depth:D},   [ W/2, H/2, 0],      wallMat);
+  solidBox('wW',    {width:T,height:H,depth:D},   [-W/2, H/2, 0],      wallMat);
+
+  /* baseboards & crown moulding (no collision needed) */
+  function baseboard(axis, pos, len){
+    const b = BABYLON.MeshBuilder.CreateBox('bb', axis==='z'?{width:0.12,height:0.35,depth:len}:{width:len,height:0.35,depth:0.12}, scene);
+    b.position.set(pos[0],0.175+T/2,pos[2]); b.material=trimMat;
+  }
+  baseboard('z',[-W/2+0.06,0,0],D); baseboard('z',[W/2-0.06,0,0],D);
+  baseboard('x',[0,0,-D/2+0.06],W); baseboard('x',[0,0,D/2-0.06],W);
+
+  function corneMold(axis,pos,len){
+    const m=BABYLON.MeshBuilder.CreateBox('cm',axis==='z'?{width:0.15,height:0.2,depth:len}:{width:len,height:0.2,depth:0.15},scene);
+    m.position.set(pos[0],H-0.1,pos[2]); m.material=trimMat;
+  }
+  corneMold('z',[-W/2+0.075,0,0],D); corneMold('z',[W/2-0.075,0,0],D);
+  corneMold('x',[0,0,-D/2+0.075],W); corneMold('x',[0,0,D/2-0.075],W);
+
+  /* skylight */
+  const skylightFrame = BABYLON.MeshBuilder.CreateBox('sf',{width:4.2,height:0.1,depth:4.2},scene);
+  skylightFrame.position.set(0,H,0); skylightFrame.material=trimMat;
+  const skylightInner = BABYLON.MeshBuilder.CreateBox('si',{width:3.6,height:0.15,depth:3.6},scene);
+  skylightInner.position.set(0,H+0.01,0);
+  const glassM=new BABYLON.StandardMaterial('glass',scene);
+  glassM.diffuseColor=new BABYLON.Color3(0.6,0.75,0.9); glassM.alpha=0.25;
+  skylightInner.material=glassM;
+  const skylight=new BABYLON.PointLight('sky',new BABYLON.Vector3(0,H+1,0),scene);
+  skylight.diffuse=new BABYLON.Color3(0.9,0.92,1.0); skylight.intensity=0.5;
+
+  /* pedestal (collidable) */
+  solidBox('pb',{width:1.6,height:0.12,depth:1.6}, [0,T/2+0.06,0],        pedMat);
+  solidBox('ps',{width:1.1,height:1.0, depth:1.1}, [0,T/2+0.12+0.5,0],   pedMat);
+  solidBox('pt',{width:1.5,height:0.1, depth:1.5}, [0,T/2+1.22,0],        pedMat);
+
+  /* paintings */
+  function makeFramedPainting(px,py,pz,ry,w,h){
+    const frameMat=new BABYLON.StandardMaterial('frm'+px+pz,scene);
+    frameMat.diffuseColor=new BABYLON.Color3(0.45,0.35,0.2);
+    const cols=[new BABYLON.Color3(0.2,0.35,0.5),new BABYLON.Color3(0.55,0.2,0.15),new BABYLON.Color3(0.2,0.45,0.3),new BABYLON.Color3(0.5,0.4,0.15)];
+    const c=cols[Math.floor(Math.random()*cols.length)];
+    const cMat=new BABYLON.StandardMaterial('cv'+px+pz,scene);
+    cMat.diffuseColor=c; cMat.emissiveColor=c.scale(0.15);
+    const outer=BABYLON.MeshBuilder.CreatePlane('fo',{width:w+0.2,height:h+0.2},scene);
+    outer.position.set(px,py,pz); outer.rotation.y=ry; outer.material=frameMat;
+    const inner=BABYLON.MeshBuilder.CreatePlane('fi',{width:w,height:h},scene);
+    inner.position.set(px,py,pz); inner.rotation.y=ry;
+    if(ry===Math.PI/2)       inner.position.x+=0.02;
+    else if(ry===-Math.PI/2) inner.position.x-=0.02;
+    else inner.position.z+=(pz<0?0.02:-0.02);
+    inner.material=cMat;
+  }
+  const f=0.01;
+  makeFramedPainting(0,   3.5,-D/2+f, 0,           3.2,2.0);
+  makeFramedPainting(0,   3.5, D/2-f, Math.PI,     3.2,2.0);
+  makeFramedPainting( W/2-f,3.5,0,-Math.PI/2,3.2,2.0);
+  makeFramedPainting(-W/2+f,3.5,0, Math.PI/2,3.2,2.0);
+
+  /* wall lamps */
+  function makeWallLamp(px,py,pz,ry){
+    const armMat=new BABYLON.StandardMaterial('arm'+px+pz,scene);
+    armMat.diffuseColor=new BABYLON.Color3(0.3,0.25,0.15);
+    const arm=BABYLON.MeshBuilder.CreateBox('arm',{width:0.06,height:0.06,depth:0.5},scene);
+    arm.position.set(px,py,pz); arm.rotation.y=ry; arm.material=armMat;
+    const shade=BABYLON.MeshBuilder.CreateCylinder('shade'+px+pz,{diameterTop:0.35,diameterBottom:0.2,height:0.25,tessellation:16},scene);
+    shade.position.set(px,py-0.1,pz); shade.material=armMat;
+    if(ry===0)          shade.position.z+=0.22;
+    if(ry===Math.PI)    shade.position.z-=0.22;
+    if(ry===Math.PI/2)  shade.position.x-=0.22;
+    if(ry===-Math.PI/2) shade.position.x+=0.22;
+    const bulb=new BABYLON.PointLight('b'+px+pz,shade.position.clone(),scene);
+    bulb.diffuse=new BABYLON.Color3(1.0,0.85,0.5); bulb.intensity=0.5; bulb.range=6;
+  }
+  makeWallLamp(0,   4.5,-D/2+0.35, 0);
+  makeWallLamp(0,   4.5, D/2-0.35, Math.PI);
+  makeWallLamp( W/2-0.35,4.5,0, Math.PI/2);
+  makeWallLamp(-W/2+0.35,4.5,0,-Math.PI/2);
+
+  /* ─────────────────────────────────────────
+     EXHIBIT GLB
+  ───────────────────────────────────────── */
+  const loadMsg=document.getElementById('loadMsg');
+  BABYLON.AppendSceneAsync('https://niguelito.com/teapot-exhibit/teapot.glb',scene).then(result=>{
+    const meshes=result.meshes;
+    let min=new BABYLON.Vector3(Infinity,Infinity,Infinity);
+    let max=new BABYLON.Vector3(-Infinity,-Infinity,-Infinity);
+    meshes.forEach(m=>{
+      if(m.getBoundingInfo){
+        const bi=m.getBoundingInfo().boundingBox;
+        min=BABYLON.Vector3.Minimize(min,bi.minimumWorld);
+        max=BABYLON.Vector3.Maximize(max,bi.maximumWorld);
+      }
+    });
+    const size=max.subtract(min);
+    const scaleFactor=2.0/Math.max(size.x,size.y,size.z);
+    const root=meshes[0];
+    root.scaling=new BABYLON.Vector3(scaleFactor,scaleFactor,scaleFactor);
+    const center=min.add(size.scale(0.5));
+    root.position=new BABYLON.Vector3(-center.x*scaleFactor,T/2+1.27-min.y*scaleFactor,-center.z*scaleFactor);
+    loadMsg.style.display='none';
+  }).catch(err=>{
+    loadMsg.textContent='Could not load exhibit.glb';
+    loadMsg.style.background='rgba(160,40,40,0.75)';
+    console.warn('GLB load error:',err);
+    // placeholder torus knot
+    const ph=BABYLON.MeshBuilder.CreateTorusKnot('ph',{radius:0.6,tube:0.18,radialSegments:128,tubularSegments:32},scene);
+    ph.position.set(0,T/2+1.8,0);
+    const phMat=new BABYLON.StandardMaterial('phMat',scene);
+    phMat.diffuseColor=new BABYLON.Color3(0.5,0.45,0.75);
+    phMat.specularColor=new BABYLON.Color3(0.8,0.8,0.8);
+    phMat.specularPower=64;
+    ph.material=phMat;
+    scene.registerBeforeRender(()=>{ ph.rotation.y+=0.008; });
+  });
+
+  /* ─────────────────────────────────────────
+     MOBILE CONTROLS
+     Left side  → joystick (move)
+     Right side → drag (look)
+  ───────────────────────────────────────── */
+  const isMobile = window.matchMedia('(pointer: coarse)').matches;
+
+  if(isMobile){
+    camera.attachControl(canvas, true);
+    // Disconnect built-in touch from camera so we can handle it manually
+    camera.detachControl(canvas);
+
+    const joystickWrap = document.getElementById('joystickWrap');
+    const joystickKnob = document.getElementById('joystickKnob');
+    const JR = 55; // outer radius
+    const KR = 22; // knob radius
+
+    let joyActive = false, joyId = null;
+    let joyDX = 0, joyDZ = 0;
+    let joyOriginX = 0, joyOriginY = 0;
+
+    let lookActive = false, lookId = null;
+    let lookLastX = 0, lookLastY = 0;
+
+    canvas.addEventListener('touchstart', e=>{
+      e.preventDefault();
+      for(const t of e.changedTouches){
+        const cx = t.clientX, cy = t.clientY;
+        const isLeft = cx < window.innerWidth / 2;
+        if(isLeft && !joyActive){
+          joyActive = true; joyId = t.identifier;
+          joyOriginX = cx; joyOriginY = cy;
+          joystickWrap.style.left = (cx - JR) + 'px';
+          joystickWrap.style.bottom = (window.innerHeight - cy - JR) + 'px';
+          joystickKnob.style.transform = 'translate(-50%,-50%)';
+        } else if(!isLeft && !lookActive){
+          lookActive = true; lookId = t.identifier;
+          lookLastX = cx; lookLastY = cy;
+        }
+      }
+    },{passive:false});
+
+    canvas.addEventListener('touchmove', e=>{
+      e.preventDefault();
+      for(const t of e.changedTouches){
+        if(t.identifier === joyId){
+          let dx = t.clientX - joyOriginX;
+          let dy = t.clientY - joyOriginY;
+          const dist = Math.sqrt(dx*dx+dy*dy);
+          if(dist > JR){ dx = dx/dist*JR; dy = dy/dist*JR; }
+          joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+          joyDX = dx / JR;
+          joyDZ = dy / JR;
+        } else if(t.identifier === lookId){
+          const ddx = (t.clientX - lookLastX) * 0.003;
+          const ddy = (t.clientY - lookLastY) * 0.003;
+          camera.rotation.y += ddx;
+          camera.rotation.x = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, camera.rotation.x + ddy));
+          lookLastX = t.clientX; lookLastY = t.clientY;
+        }
+      }
+    },{passive:false});
+
+    const endTouch = e=>{
+      for(const t of e.changedTouches){
+        if(t.identifier === joyId){
+          joyActive = false; joyId = null;
+          joyDX = 0; joyDZ = 0;
+          joystickKnob.style.transform = 'translate(-50%,-50%)';
+        } else if(t.identifier === lookId){
+          lookActive = false; lookId = null;
+        }
+      }
+    };
+    canvas.addEventListener('touchend',   endTouch, {passive:false});
+    canvas.addEventListener('touchcancel',endTouch, {passive:false});
+
+    // Apply joystick movement each frame
+    scene.registerBeforeRender(()=>{
+      if(joyActive){
+        const speed = 0.38;
+        const yaw = camera.rotation.y;
+        const fx = Math.sin(yaw)*joyDZ + Math.sin(yaw - Math.PI/2)*joyDX;
+        const fz = Math.cos(yaw)*joyDZ + Math.cos(yaw - Math.PI/2)*joyDX;
+        const vel = new BABYLON.Vector3(fx*speed, 0, fz*speed);
+        camera.cameraDirection.addInPlace(vel);
+      }
+      camera.position.y = EYE_HEIGHT;
+    });
+
+  } else {
+    // Desktop: attach after pointer lock
+    // (attachControl is called in the lock overlay click handler)
+  }
+
+  /* ─────────────────────────────────────────
+     RENDER LOOP
+  ───────────────────────────────────────── */
+  engine.runRenderLoop(()=>scene.render());
+  window.addEventListener('resize',()=>engine.resize());
+
+})();
+</script>
 </body>
 </html>
