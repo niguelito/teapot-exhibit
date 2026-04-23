@@ -332,7 +332,7 @@
      EXHIBIT GLB
   ───────────────────────────────────────── */
   const loadMsg=document.getElementById('loadMsg');
-  BABYLON.SceneLoader.ImportMeshAsync('','teapot.glb',scene).then(result=>{
+  scene.AppendSceneAsync('./teapot.glb',scene).then(result=>{
     const meshes=result.meshes;
     let min=new BABYLON.Vector3(Infinity,Infinity,Infinity);
     let max=new BABYLON.Vector3(-Infinity,-Infinity,-Infinity);
