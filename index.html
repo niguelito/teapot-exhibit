@@ -4,7 +4,94 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Utah Teapot Exhibit</title>
-<link rel="stylesheet" href="./style.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0d0c10; }
+
+  #renderCanvas { width: 100%; height: 100%; display: block; touch-action: none; }
+
+  /* ── HUD ── */
+  #hud {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.50); color: #fff;
+    font: 13px/1.4 'Segoe UI', sans-serif;
+    padding: 7px 18px; border-radius: 20px;
+    pointer-events: none; white-space: nowrap;
+    transition: opacity 0.6s;
+  }
+  #loadMsg {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    background: rgba(0,0,0,0.65); color: #fff;
+    font: 14px 'Segoe UI', sans-serif;
+    padding: 14px 28px; border-radius: 14px; pointer-events: none;
+  }
+
+  /* ── Click-to-lock overlay ── */
+  #lockOverlay {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.52);
+    cursor: pointer; user-select: none;
+  }
+  #lockOverlay span {
+    color: #fff; font: 600 18px 'Segoe UI', sans-serif;
+    background: rgba(255,255,255,0.12);
+    border: 1.5px solid rgba(255,255,255,0.35);
+    padding: 12px 28px; border-radius: 10px;
+    letter-spacing: 0.04em;
+  }
+  #lockOverlay small {
+    margin-top: 10px; color: rgba(255,255,255,0.55);
+    font: 13px 'Segoe UI', sans-serif;
+  }
+
+  /* ── Mobile joystick ── */
+  #joystickWrap {
+    display: none;
+    position: fixed; left: 28px; bottom: 28px;
+    width: 110px; height: 110px;
+    touch-action: none;
+  }
+  #joystickBase {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.10);
+    border: 2px solid rgba(255,255,255,0.25);
+  }
+  #joystickKnob {
+    position: absolute;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.35);
+    border: 2px solid rgba(255,255,255,0.6);
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    pointer-events: none;
+  }
+
+  /* ── Mobile look area hint ── */
+  #lookHint {
+    display: none;
+    position: fixed; right: 28px; bottom: 28px;
+    width: 110px; height: 110px; border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+    border: 2px solid rgba(255,255,255,0.15);
+    pointer-events: none;
+  }
+  #lookHintLabel {
+    display: none;
+    position: fixed; right: 28px; bottom: 145px;
+    color: rgba(255,255,255,0.45);
+    font: 12px 'Segoe UI', sans-serif;
+    pointer-events: none; text-align: center; width: 110px;
+  }
+
+  @media (pointer: coarse) {
+    #joystickWrap, #lookHint, #lookHintLabel { display: block; }
+    #lockOverlay { display: none !important; }
+  }
+</style>
 </head>
 <body>
 
@@ -245,7 +332,7 @@
      EXHIBIT GLB
   ───────────────────────────────────────── */
   const loadMsg=document.getElementById('loadMsg');
-  BABYLON.AppendSceneAsync('https://niguelito.com/teapot-exhibit/teapot.glb',scene).then(result=>{
+  BABYLON.SceneLoader.ImportMeshAsync('','./teapot.glb',scene).then(result=>{
     const meshes=result.meshes;
     let min=new BABYLON.Vector3(Infinity,Infinity,Infinity);
     let max=new BABYLON.Vector3(-Infinity,-Infinity,-Infinity);
@@ -264,7 +351,7 @@
     root.position=new BABYLON.Vector3(-center.x*scaleFactor,T/2+1.27-min.y*scaleFactor,-center.z*scaleFactor);
     loadMsg.style.display='none';
   }).catch(err=>{
-    loadMsg.textContent='Could not load exhibit.glb';
+    loadMsg.textContent='Could not load teapot file';
     loadMsg.style.background='rgba(160,40,40,0.75)';
     console.warn('GLB load error:',err);
     // placeholder torus knot
