@@ -345,10 +345,11 @@
     });
     const size=max.subtract(min);
     const scaleFactor=2.0/Math.max(size.x,size.y,size.z);
-    const root=meshes[0];
-    root.scaling=new BABYLON.Vector3(scaleFactor,scaleFactor,scaleFactor);
-    const center=min.add(size.scale(0.5));
-    root.position=new BABYLON.Vector3(-center.x*scaleFactor,T/2+1.27-min.y*scaleFactor,-center.z*scaleFactor);
+    meshes.forEach(root => {
+      root.scaling=new BABYLON.Vector3(scaleFactor,scaleFactor,scaleFactor);
+      const center=min.add(size.scale(0.5));
+      root.position=new BABYLON.Vector3(-center.x*scaleFactor,T/2+1.27-min.y*scaleFactor,-center.z*scaleFactor);
+    });
     loadMsg.style.display='none';
   }).catch(err=>{
     loadMsg.textContent='Could not load teapot file';
