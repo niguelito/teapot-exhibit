@@ -212,39 +212,39 @@
   /* ─────────────────────────────────────────
      EXHIBIT GLB
   ───────────────────────────────────────── */
-  const loadMsg=document.getElementById('loadMsg');
-  BABYLON.AppendSceneAsync('./teapot.glb',scene).then(result=>{
-    const meshes=result.meshes;
-    let min=new BABYLON.Vector3(Infinity,Infinity,Infinity);
-    let max=new BABYLON.Vector3(-Infinity,-Infinity,-Infinity);
-    meshes.forEach(m=>{
-      if(m.getBoundingInfo){
-        const bi=m.getBoundingInfo().boundingBox;
-        min=BABYLON.Vector3.Minimize(min,bi.minimumWorld);
-        max=BABYLON.Vector3.Maximize(max,bi.maximumWorld);
-      }
-    });
-    const size=max.subtract(min);
-    const scaleFactor=2.0/Math.max(size.x,size.y,size.z);
-    const root=meshes[0];
-    root.scaling=new BABYLON.Vector3(scaleFactor,scaleFactor,scaleFactor);
-    const center=min.add(size.scale(0.5));
-    root.position=new BABYLON.Vector3(-center.x*scaleFactor,T/2+1.27-min.y*scaleFactor,-center.z*scaleFactor);
-    loadMsg.style.display='none';
-  }).catch(err=>{
-    loadMsg.textContent='Could not load exhibit.glb';
-    loadMsg.style.background='rgba(160,40,40,0.75)';
-    console.warn('GLB load error:',err);
-    // placeholder torus knot
-    const ph=BABYLON.MeshBuilder.CreateTorusKnot('ph',{radius:0.6,tube:0.18,radialSegments:128,tubularSegments:32},scene);
-    ph.position.set(0,T/2+1.8,0);
-    const phMat=new BABYLON.StandardMaterial('phMat',scene);
-    phMat.diffuseColor=new BABYLON.Color3(0.5,0.45,0.75);
-    phMat.specularColor=new BABYLON.Color3(0.8,0.8,0.8);
-    phMat.specularPower=64;
-    ph.material=phMat;
-    scene.registerBeforeRender(()=>{ ph.rotation.y+=0.008; });
-  });
+//   const loadMsg=document.getElementById('loadMsg');
+//   BABYLON.AppendSceneAsync('./teapot.glb',scene).then(result=>{
+//     const meshes=result.meshes;
+//     let min=new BABYLON.Vector3(Infinity,Infinity,Infinity);
+//     let max=new BABYLON.Vector3(-Infinity,-Infinity,-Infinity);
+//     meshes.forEach(m=>{
+//       if(m.getBoundingInfo){
+//         const bi=m.getBoundingInfo().boundingBox;
+//         min=BABYLON.Vector3.Minimize(min,bi.minimumWorld);
+//         max=BABYLON.Vector3.Maximize(max,bi.maximumWorld);
+//       }
+//     });
+//     const size=max.subtract(min);
+//     const scaleFactor=2.0/Math.max(size.x,size.y,size.z);
+//     const root=meshes[0];
+//     root.scaling=new BABYLON.Vector3(scaleFactor,scaleFactor,scaleFactor);
+//     const center=min.add(size.scale(0.5));
+//     root.position=new BABYLON.Vector3(-center.x*scaleFactor,T/2+1.27-min.y*scaleFactor,-center.z*scaleFactor);
+//     loadMsg.style.display='none';
+//   }).catch(err=>{
+//     loadMsg.textContent='Could not load exhibit.glb';
+//     loadMsg.style.background='rgba(160,40,40,0.75)';
+//     console.warn('GLB load error:',err);
+//     // placeholder torus knot
+//     const ph=BABYLON.MeshBuilder.CreateTorusKnot('ph',{radius:0.6,tube:0.18,radialSegments:128,tubularSegments:32},scene);
+//     ph.position.set(0,T/2+1.8,0);
+//     const phMat=new BABYLON.StandardMaterial('phMat',scene);
+//     phMat.diffuseColor=new BABYLON.Color3(0.5,0.45,0.75);
+//     phMat.specularColor=new BABYLON.Color3(0.8,0.8,0.8);
+//     phMat.specularPower=64;
+//     ph.material=phMat;
+//     scene.registerBeforeRender(()=>{ ph.rotation.y+=0.008; });
+//   });
 
   /* ─────────────────────────────────────────
      MOBILE CONTROLS
