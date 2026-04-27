@@ -446,10 +446,10 @@
     // Apply joystick movement each frame
     scene.registerBeforeRender(()=>{
       if(joyActive){
-        const speed = 0.38;
+        const speed = 0.18;
         const yaw = camera.rotation.y;
-        const fx = Math.sin(yaw)*joyDZ + Math.sin(yaw - Math.PI/2)*joyDX;
-        const fz = Math.cos(yaw)*joyDZ + Math.cos(yaw - Math.PI/2)*joyDX;
+        const fx = Math.sin(yaw)*joyDZ + Math.sin(yaw - Math.PI/2)*-joyDX;
+        const fz = Math.cos(yaw)*joyDZ + Math.cos(yaw - Math.PI/2)*-joyDX;
         const vel = new BABYLON.Vector3(fx*speed, 0, fz*speed);
         camera.cameraDirection.addInPlace(vel);
       }
